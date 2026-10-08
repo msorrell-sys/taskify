@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  fullName     String    @map("full_name") @db.VarChar(100)
+  role         Role
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  assignedTasks Task[]    @relation("TaskAssignee")
+  comments     Comment[]
+
+  @@map("users")
+}
+
+enum Role {
+  ProductManager @map("product_manager")
+  Engineer
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  name      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tasks Task[]
+
+  @@map("projects")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(200)
+  description String?  @db.VarChar(2000)
+  status      Status   @default(ToDo)
+  assigneeId  String?  @map("assignee_id")
+  projectId   String   @map("project_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  assignee User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([projectId, status])
+  @@map("tasks")
+}
+
+enum Status {
+  ToDo       @map("todo")
+  InProgress @map("in_progress")
+  InReview   @map("in_review")
+  Done
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String   @db.VarChar(1000)
+  authorId  String   @map("author_id")
+  taskId    String   @map("task_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([taskId, createdAt])
+  @@map("comments")
+}

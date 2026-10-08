@@ -1,0 +1,711 @@
+openapi: 3.1.0
+info:
+  title: Taskify Team Kanban Platform API
+  version: 1.0.0
+  description: |
+    REST API for the Team Kanban Platform enabling collaborative task management
+    across projects using Kanban workflow. Supports task creation, status updates,
+    comments, and filtering.
+
+    **Security Note**: Phase 1 has no authentication - all endpoints are publicly accessible.
+    Future phases will add user authentication and authorization.
+  contact:
+    name: Taskify Development Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+  - url: https://api.taskify.dev/v1
+    description: Production server (future)
+
+tags:
+  - name: projects
+    description: Project management operations
+  - name: tasks
+    description: Task management and Kanban workflow operations
+  - name: comments
+    description: Task comment and collaboration operations
+  - name: users
+    description: User information operations
+
+paths:
+  /projects:
+    get:
+      tags: [projects]
+      summary: List all projects
+      description: |
+        Retrieve all projects in the system. Returns 3 predefined projects in phase 1.
+        Supports User Story 1 (View and Navigate Projects).
+      operationId: listProjects
+      responses:
+        '200':
+          description: Successfully retrieved project list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 3
+              examples:
+                success:
+                  value:
+                    data:
+                      - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        name: "Mobile App Redesign"
+                        createdAt: "2026-10-01T10:00:00Z"
+                      - id: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                        name: "API v2 Migration"
+                        createdAt: "2026-10-01T11:00:00Z"
+                      - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        name: "Customer Dashboard"
+                        createdAt: "2026-10-01T12:00:00Z"
+                    meta:
+                      total: 3
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}/tasks:
+    get:
+      tags: [tasks]
+      summary: List tasks for a project
+      description: |
+        Retrieve all tasks for a specific project. Returns tasks with assignee information
+        and comment counts for card display. Supports User Story 1 (View and Navigate Projects).
+      operationId: listTasksByProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: assigneeId
+          in: query
+          description: Filter tasks by assignee (supports User Story 6)
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filter tasks by status/column
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+      responses:
+        '200':
+          description: Successfully retrieved task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskSummary'
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      projectId:
+                        type: string
+                        format: uuid
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [tasks]
+      summary: Create a new task
+      description: |
+        Create a new task in the specified project. Task is created in "To Do" status.
+        Supports User Story 3 (Create New Tasks).
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+            examples:
+              withAssignee:
+                summary: Task with assignee
+                value:
+                  title: "Implement user authentication"
+                  description: "Add OAuth2 authentication flow for user login"
+                  assigneeId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              unassigned:
+                summary: Unassigned task
+                value:
+                  title: "Research database options"
+                  description: "Compare PostgreSQL vs MongoDB for our use case"
+                  assigneeId: null
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}:
+    get:
+      tags: [tasks]
+      summary: Get task details
+      description: |
+        Retrieve full task details including all comments. Supports User Story 5
+        (Add Comments to Tasks) by providing comment thread data.
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Successfully retrieved task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags: [tasks]
+      summary: Update task
+      description: |
+        Update task status (User Story 2), assignee (User Story 4), or other fields.
+        Any team member can update any task without role restrictions.
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+            examples:
+              statusChange:
+                summary: Move task to In Progress
+                value:
+                  status: "InProgress"
+              reassign:
+                summary: Reassign task
+                value:
+                  assigneeId: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+              unassign:
+                summary: Unassign task
+                value:
+                  assigneeId: null
+              multiple:
+                summary: Update multiple fields
+                value:
+                  title: "Updated task title"
+                  description: "Updated description"
+                  status: "InReview"
+                  assigneeId: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}/comments:
+    get:
+      tags: [comments]
+      summary: List comments for a task
+      description: |
+        Retrieve all comments for a task in chronological order (oldest first).
+        Supports User Story 5 (Add Comments to Tasks).
+      operationId: listComments
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Successfully retrieved comment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      taskId:
+                        type: string
+                        format: uuid
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [comments]
+      summary: Add comment to task
+      description: |
+        Add a new comment to a task. Any team member can comment on any task (open
+        collaboration model). Supports User Story 5 (Add Comments to Tasks).
+      operationId: createComment
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+            examples:
+              standard:
+                summary: Standard comment
+                value:
+                  text: "I've started working on this. Should be done by EOD."
+                  authorId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '201':
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users:
+    get:
+      tags: [users]
+      summary: List all users
+      description: |
+        Retrieve all users in the system. Returns 5 predefined users (1 PM, 4 engineers)
+        in phase 1. Used for assignee dropdowns and user filtering.
+      operationId: listUsers
+      responses:
+        '200':
+          description: Successfully retrieved user list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 5
+              examples:
+                success:
+                  value:
+                    data:
+                      - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        fullName: "Sarah Chen"
+                        role: "ProductManager"
+                      - id: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                        fullName: "Alex Rivera"
+                        role: "Engineer"
+                      - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        fullName: "Jordan Kim"
+                        role: "Engineer"
+                      - id: "d4e5f6g7-h8i9-0123-defg-234567890123"
+                        fullName: "Morgan Patel"
+                        role: "Engineer"
+                      - id: "e5f6g7h8-i9j0-1234-efgh-345678901234"
+                        fullName: "Casey Zhang"
+                        role: "Engineer"
+                    meta:
+                      total: 5
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Project:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique project identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Project name
+          example: "Mobile App Redesign"
+        createdAt:
+          type: string
+          format: date-time
+          description: Project creation timestamp
+
+    TaskStatus:
+      type: string
+      enum: [ToDo, InProgress, InReview, Done]
+      description: |
+        Task workflow status:
+        - ToDo: Not started, initial state for new tasks
+        - InProgress: Actively being worked on
+        - InReview: Completed, awaiting review
+        - Done: Completed and accepted
+
+    User:
+      type: object
+      required: [id, fullName, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User display name
+          example: "Sarah Chen"
+        role:
+          type: string
+          enum: [ProductManager, Engineer]
+          description: User role (informational only in phase 1)
+
+    TaskSummary:
+      type: object
+      required: [id, title, status, projectId, createdAt, updatedAt]
+      description: Task information for card display on Kanban board
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        descriptionPreview:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: First 50 characters of description with ellipsis if truncated
+          example: "Implement OAuth2 authentication flow for user..."
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        assignee:
+          allOf:
+            - $ref: '#/components/schemas/User'
+            - nullable: true
+          description: Assigned user or null if unassigned
+        commentCount:
+          type: integer
+          minimum: 0
+          description: Number of comments on this task
+          example: 3
+        projectId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Task:
+      type: object
+      required: [id, title, status, projectId, createdAt, updatedAt]
+      description: Full task details including comments
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        assignee:
+          allOf:
+            - $ref: '#/components/schemas/User'
+            - nullable: true
+        projectId:
+          type: string
+          format: uuid
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          description: Comments in chronological order (oldest first)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Task title (required, sanitized for XSS)
+          example: "Implement user authentication"
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Task description (optional, sanitized for XSS)
+          example: "Add OAuth2 authentication flow for user login"
+        assigneeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Assigned user ID or null for unassigned
+
+    UpdateTaskRequest:
+      type: object
+      description: All fields optional - only provided fields are updated
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Updated task title
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Updated task description
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        assigneeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Updated assignee ID or null to unassign
+
+    Comment:
+      type: object
+      required: [id, text, author, taskId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Comment content (sanitized for XSS)
+        author:
+          $ref: '#/components/schemas/User'
+        taskId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+          description: Comment creation timestamp (used for chronological ordering)
+
+    CreateCommentRequest:
+      type: object
+      required: [text, authorId]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Comment content (must be non-empty, sanitized for XSS)
+          example: "I've started working on this. Should be done by EOD."
+        authorId:
+          type: string
+          format: uuid
+          description: Comment author user ID
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Task title is required and must be 1-200 characters"
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: "title"
+                  message:
+                    type: string
+                    example: "Title must not be empty"
+
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Project unique identifier
+      schema:
+        type: string
+        format: uuid
+
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      description: Task unique identifier
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "NOT_FOUND"
+              message: "Resource not found"
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            emptyTitle:
+              summary: Empty task title
+              value:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Validation failed"
+                  details:
+                    - field: "title"
+                      message: "Title is required and must be 1-200 characters"
+            emptyComment:
+              summary: Empty comment
+              value:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Comment cannot be empty"
+                  details:
+                    - field: "text"
+                      message: "Comment text is required and must be 1-1000 characters"
+            xssDetected:
+              summary: XSS attempt detected
+              value:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Invalid input detected"
+                  details:
+                    - field: "description"
+                      message: "Input contains potentially unsafe content"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An unexpected error occurred. Please try again later."
+
+  securitySchemes: {}
+  # Phase 1: No authentication required
+  # Future phases will add: BearerAuth, ApiKeyAuth, etc.
+
+security: []
+# Phase 1: All endpoints publicly accessible
+# Future phases will require authentication on all endpoints
+
+x-documentation:
+  constitutionalCompliance:
+    securityFirst: |
+      All input validation rules enforced per FR-007, FR-009, FR-016.
+      XSS sanitization mandatory for all text inputs (title, description, comment text).
+      Maximum length constraints prevent DoS attacks.
+    microservicesArchitecture: |
+      This API represents the backend service contract. Frontend service consumes this
+      API as an independently deployable microservice.
+    documentationStandards: |
+      OpenAPI 3.1 specification meets constitutional requirement for API contract documentation.
+      Includes examples, descriptions, and error responses for all endpoints.
+
+  userStoryMapping:
+    P1_ViewProjects: "GET /projects, GET /projects/{projectId}/tasks"
+    P2_MoveTasks: "PATCH /tasks/{taskId} (status field)"
+    P3_CreateTasks: "POST /projects/{projectId}/tasks"
+    P4_ReassignTasks: "PATCH /tasks/{taskId} (assigneeId field)"
+    P5_AddComments: "GET /tasks/{taskId}/comments, POST /tasks/{taskId}/comments"
+    P6_FilterByUser: "GET /projects/{projectId}/tasks?assigneeId={userId}"

@@ -1,0 +1,51 @@
+.kanban-board-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+}
+
+.kanban-board-main {
+  flex: 1;
+  padding: var(--spacing-xl) 0;
+}
+
+.kanban-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.kanban-board-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  flex: 1;
+  text-align: center;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) 0;
+  gap: var(--spacing-md);
+}
+
+.loading-container p {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl) 0;
+  color: var(--color-text-muted);
+}
+
+.empty-state p {
+  font-size: 1rem;
+}
