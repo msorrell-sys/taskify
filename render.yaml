@@ -31,7 +31,6 @@ services:
   - type: web
     name: taskify-frontend
     runtime: static
-    plan: free
     buildCommand: cd frontend && npm install --cache /tmp/npm-cache && npm run build
     staticPublishPath: frontend/dist
     envVars:
