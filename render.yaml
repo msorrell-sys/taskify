@@ -1,11 +1,10 @@
-services:
+databases:
   # PostgreSQL Database
-  - type: pserv
-    name: taskify-db
-    env: docker
-    plan: free
-    region: oregon
+  - name: taskify-db
+    databaseName: taskify
+    user: taskify
 
+services:
   # Backend API
   - type: web
     name: taskify-backend
